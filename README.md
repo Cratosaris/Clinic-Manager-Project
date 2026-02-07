@@ -2,7 +2,7 @@
 
 Pour créer ce prototype interactif complet en un seul fichier (Single Page Application), on a combiné plusieurs technologies modernes et légères, parfaitement alignées avec votre exigence d'une interface "rapide et optimisée".
 
-Voici la liste détaillée de ce que on est utilisé :
+Voici la liste détaillée de ce que on a utilisé :
 
 ### 1. Structure & Style (Le "Vêtement")
 
