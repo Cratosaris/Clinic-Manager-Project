@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinicOS | Système de Gestion de Clinique</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6', // Teal
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            900: '#134e4a',
+                        },
+                        accent: {
+                            500: '#f97316', // Orange (African context)
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-in': 'slideIn 0.4s ease-out forwards',
+                        'bounce-slight': 'bounceSlight 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateX(-20px)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' },
+                        },
+                        bounceSlight: {
+                            '0%, 100%': { transform: 'translateY(-3%)' },
+                            '50%': { transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-dark {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Particle Canvas Layer */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Chart styling */
+        .chart-bar {
+            transition: height 1s ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Background Animation -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- App Container -->
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-slate-900 text-white flex flex-col transition-all duration-300 transform -translate-x-full md:translate-x-0 z-50 fixed md:relative h-full">
+            <div class="p-6 border-b border-slate-800 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-500 flex items-center justify-center text-xl font-bold shadow-lg shadow-brand-500/50">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight">ClinicOS</h1>
+                    <p class="text-xs text-slate-400">Gestion Africaine</p>
+                </div>
+            </div>
+
+            <!-- Role Switcher (For Demo Purposes) -->
+            <div class="px-4 py-4 border-b border-slate-800 bg-slate-800/50">
+                <label class="text-xs text-slate-400 uppercase font-semibold mb-2 block">Rôle Simulé</label>
+                <select id="role-select" onchange="updateRole()" class="w-full bg-slate-900 border border-slate-700 text-sm rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 outline-none">
+                    <option value="admin">Administrateur</option>
+                    <option value="doctor">Médecin</option>
+                    <option value="nurse">Infirmier</option>
+                    <option value="reception">Réceptionniste</option>
+                </select>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+                <a href="#" onclick="navigate('dashboard')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-brand-600 text-white transition-all shadow-lg shadow-brand-900/20">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                    <span class="font-medium text-sm">Tableau de Bord</span>
+                </a>
+                <a href="#" onclick="navigate('patients')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-users w-5 text-center"></i>
+                    <span class="font-medium text-sm">Patients</span>
+                </a>
+                <a href="#" onclick="navigate('consultations')" class="nav-item doctor-only hidden flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-stethoscope w-5 text-center"></i>
+                    <span class="font-medium text-sm">Consultations</span>
+                </a>
+                <a href="#" onclick="navigate('appointments')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-regular fa-calendar-check w-5 text-center"></i>
+                    <span class="font-medium text-sm">Rendez-vous</span>
+                </a>
+                <a href="#" onclick="navigate('pharmacy')" class="nav-item nurse-only hidden flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-pills w-5 text-center"></i>
+                    <span class="font-medium text-sm">Pharmacie</span>
+                </a>
+                <a href="#" onclick="navigate('billing')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
+                    <span class="font-medium text-sm">Facturation</span>
+                </a>
+                <div class="pt-4 mt-4 border-t border-slate-800">
+                    <a href="#" onclick="navigate('settings')" class="nav-item admin-only hidden flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                        <i class="fa-solid fa-gear w-5 text-center"></i>
+                        <span class="font-medium text-sm">Administration</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="p-4 border-t border-slate-800">
+                <button onclick="logout()" class="flex items-center gap-3 text-slate-400 hover:text-red-400 transition-colors w-full">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span class="text-sm">Déconnexion</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+            
+            <!-- Mobile Header -->
+            <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-6 z-40 sticky top-0">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-500 hover:text-brand-600">
+                        <i class="fa-solid fa-bars text-xl"></i>
+                    </button>
+                    <div class="hidden md:flex items-center text-sm text-slate-500">
+                        <span>Accueil</span>
+                        <i class="fa-solid fa-chevron-right text-xs mx-2"></i>
+                        <span id="page-title" class="text-slate-800 font-medium">Tableau de Bord</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- Status Indicator -->
+                    <div class="hidden md:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-100">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span class="text-xs font-semibold text-green-700">Système en ligne</span>
+                    </div>
+
+                    <!-- User Profile -->
+                    <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                        <div class="text-right hidden sm:block">
+                            <p id="user-name" class="text-sm font-semibold text-slate-800">Dr. Kouassi</p>
+                            <p id="user-role" class="text-xs text-brand-600">Médecin</p>
+                        </div>
+                        <div class="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div id="content-area" class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+                
+                <!-- Dashboard Section -->
+                <section id="dashboard" class="page-section animate-fade-in space-y-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800">Bonjour, <span id="dash-name">Dr. Kouassi</span></h2>
+                            <p class="text-slate-500">Voici un aperçu de la clinique aujourd'hui.</p>
+                        </div>
+                        <button onclick="navigate('patients')" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/30 flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Nouveau Patient
+                        </button>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Card 1 -->
+                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Patients Aujourd'hui</p>
+                                    <h3 class="text-2xl font-bold text-slate-800 mt-1">24</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-user-group"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-xs">
+                                <span class="text-green-600 flex items-center gap-1 font-medium bg-green-50 px-1.5 py-0.5 rounded"><i class="fa-solid fa-arrow-trend-up"></i> +12%</span>
+                                <span class="text-slate-400 ml-2">vs hier</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Revenus (FCFA)</p>
+                                    <h3 class="text-2xl font-bold text-slate-800 mt-1">450K</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-money-bill-wave"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-xs">
+                                <span class="text-green-600 flex items-center gap-1 font-medium bg-green-50 px-1.5 py-0.5 rounded"><i class="fa-solid fa-arrow-trend-up"></i> +5%</span>
+                                <span class="text-slate-400 ml-2">cette semaine</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Rendez-vous</p>
+                                    <h3 class="text-2xl font-bold text-slate-800 mt-1">8</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <i class="fa-regular fa-calendar"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-xs">
+                                <span class="text-orange-600 flex items-center gap-1 font-medium bg-orange-50 px-1.5 py-0.5 rounded"><i class="fa-regular fa-clock"></i> 2 en attente</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 4 -->
+                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Alertes Stock</p>
+                                    <h3 class="text-2xl font-bold text-red-600 mt-1">3</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-xs">
+                                <span class="text-slate-500 font-medium">Médicaments bas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts & Lists Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Stats Chart (Canvas) -->
+                        <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm lg:col-span-2">
+                            <h3 class="font-bold text-slate-800 mb-4">Flux de patients (Semaine)</h3>
+                            <div class="h-64 flex items-end justify-between gap-2 px-2">
+                                <!-- Simulated Bar Chart with Tailwind -->
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 40%">
+                                    <div class="absolute bottom-0 w-full bg-brand-500 rounded-t-lg chart-bar group-hover:bg-brand-600 transition-colors"></div>
+                                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">40</div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Lun</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 65%">
+                                    <div class="absolute bottom-0 w-full bg-brand-500 rounded-t-lg chart-bar group-hover:bg-brand-600 transition-colors"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Mar</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 50%">
+                                    <div class="absolute bottom-0 w-full bg-brand-500 rounded-t-lg chart-bar group-hover:bg-brand-600 transition-colors"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Mer</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 85%">
+                                    <div class="absolute bottom-0 w-full bg-brand-500 rounded-t-lg chart-bar group-hover:bg-brand-600 transition-colors"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Jeu</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 70%">
+                                    <div class="absolute bottom-0 w-full bg-brand-500 rounded-t-lg chart-bar group-hover:bg-brand-600 transition-colors"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Ven</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 30%">
+                                    <div class="absolute bottom-0 w-full bg-brand-300 rounded-t-lg chart-bar" style="animation-delay: 0.2s"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Sam</p>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-t-lg relative group cursor-pointer" style="height: 20%">
+                                    <div class="absolute bottom-0 w-full bg-brand-300 rounded-t-lg chart-bar" style="animation-delay: 0.4s"></div>
+                                    <p class="absolute -bottom-6 w-full text-center text-xs text-slate-400">Dim</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Patients -->
+                        <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                            <h3 class="font-bold text-slate-800 mb-4">Patients Récents</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Annie" alt="">
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold text-slate-800">Aminata Diallo</p>
+                                        <p class="text-xs text-slate-500">Paludisme • 10:30</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Terminé</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Bob" alt="">
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold text-slate-800">Kofi Mensah</p>
+                                        <p class="text-xs text-slate-500">Contrôle • 11:15</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">En cours</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jack" alt="">
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold text-slate-800">Fatou Bensouda</p>
+                                        <p class="text-xs text-slate-500">Grippe • 14:00</p>
+                                    </div>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">À venir</span>
+                                </div>
+                            </div>
+                            <button onclick="navigate('patients')" class="w-full mt-6 py-2 text-sm text-center text-brand-600 font-medium hover:bg-brand-50 rounded-lg transition-colors">Voir tout</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Patients Section -->
+                <section id="patients" class="page-section hidden animate-slide-in space-y-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">Gestion des Patients</h2>
+                        <button onclick="openModal('add-patient-modal')" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/30 flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Nouveau Patient
+                        </button>
+                    </div>
+
+                    <!-- Search & Filter Bar -->
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1 relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="patient-search" oninput="filterPatients()" placeholder="Rechercher par nom, numéro de dossier..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all text-sm">
+                        </div>
+                        <select class="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option>Tous les statuts</option>
+                            <option>Hospitalisé</option>
+                            <option>Ambulatoire</option>
+                        </select>
+                    </div>
+
+                    <!-- Patients Table -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold">
+                                        <th class="px-6 py-4">Dossier</th>
+                                        <th class="px-6 py-4">Patient</th>
+                                        <th class="px-6 py-4">Contact</th>
+                                        <th class="px-6 py-4">Dernière visite</th>
+                                        <th class="px-6 py-4">Statut</th>
+                                        <th class="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="patients-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                    <!-- JS will populate this -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center text-xs text-slate-500">
+                            <span>Affichage 1-5 sur 124 patients</span>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 border border-slate-300 rounded hover:bg-white disabled:opacity-50">Précédent</button>
+                                <button class="px-3 py-1 border border-slate-300 rounded hover:bg-white">Suivant</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Consultations Section -->
+                <section id="consultations" class="page-section hidden animate-slide-in space-y-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">Consultation en cours</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Vitals Form -->
+                        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                            <h3 class="font-semibold text-slate-800 border-b pb-2">Signes Vitaux</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Température (°C)</label>
+                                    <input type="number" step="0.1" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="37.0">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Poids (kg)</label>
+                                    <input type="number" step="0.1" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="70">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Tension (mmHg)</label>
+                                    <input type="text" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="120/80">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Pouls (bpm)</label>
+                                    <input type="number" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="72">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medical Form -->
+                        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 lg:col-span-2">
+                            <h3 class="font-semibold text-slate-800 border-b pb-2">Diagnostic & Prescription</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Symptômes</label>
+                                    <textarea rows="2" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="Fièvre, maux de tête..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Diagnostic</label>
+                                    <input type="text" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="Paludisme simple">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Prescriptions</label>
+                                    <div class="flex gap-2">
+                                        <select class="flex-1 p-2 border border-slate-300 rounded text-sm">
+                                            <option>Paracetamol 500mg</option>
+                                            <option>Artemether/Lumefantrine</option>
+                                            <option>Amoxicilline 1g</option>
+                                        </select>
+                                        <button class="px-3 bg-brand-50 text-brand-600 border border-brand-200 rounded hover:bg-brand-100 text-sm"><i class="fa-solid fa-plus"></i></button>
+                                    </div>
+                                    <div class="mt-2 space-y-1" id="prescription-list">
+                                        <!-- Dynamic list items -->
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-2">
+                                    <button class="px-4 py-2 text-slate-600 text-sm hover:bg-slate-50 rounded">Annuler</button>
+                                    <button onclick="showToast('Consultation enregistrée', 'success')" class="px-4 py-2 bg-brand-600 text-white text-sm rounded hover:bg-brand-700 shadow-lg shadow-brand-500/30">Enregistrer</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Billing Section -->
+                <section id="billing" class="page-section hidden animate-slide-in space-y-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">Facturation</h2>
+                        <button onclick="openModal('new-invoice-modal')" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/30 flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Nouvelle Facture
+                        </button>
+                    </div>
+
+                    <!-- Invoices List -->
+                    <div class="grid gap-4">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                                    <i class="fa-solid fa-file-invoice text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">FAC-2023-001</h4>
+                                    <p class="text-sm text-slate-500">Aminata Diallo • Consultation + Pharmacie</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-lg text-slate-800">25,000 FCFA</p>
+                                <span class="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">En attente</span>
+                            </div>
+                            <button onclick="openModal('payment-modal')" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 text-sm">Payer</button>
+                        </div>
+
+                         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                                    <i class="fa-solid fa-file-invoice text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">FAC-2023-002</h4>
+                                    <p class="text-sm text-slate-500">Jean Dupont • Analyses</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-lg text-slate-800">15,000 FCFA</p>
+                                <span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Payé (Momo)</span>
+                            </div>
+                            <button class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 text-sm opacity-50 cursor-not-allowed">Reçu</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Placeholder for other sections -->
+                <section id="appointments" class="page-section hidden animate-fade-in text-center py-20">
+                    <div class="inline-block p-6 rounded-full bg-slate-100 mb-4">
+                        <i class="fa-regular fa-calendar-check text-4xl text-slate-400"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800">Gestion des Rendez-vous</h2>
+                    <p class="text-slate-500">Module disponible dans la version complète.</p>
+                </section>
+
+                <section id="pharmacy" class="page-section hidden animate-fade-in text-center py-20">
+                    <div class="inline-block p-6 rounded-full bg-slate-100 mb-4">
+                        <i class="fa-solid fa-pills text-4xl text-slate-400"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800">Gestion de Pharmacie</h2>
+                    <p class="text-slate-500">Module disponible dans la version complète.</p>
+                </section>
+
+                <section id="settings" class="page-section hidden animate-fade-in text-center py-20">
+                    <div class="inline-block p-6 rounded-full bg-slate-100 mb-4">
+                        <i class="fa-solid fa-gear text-4xl text-slate-400"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800">Administration</h2>
+                    <p class="text-slate-500">Gestion des utilisateurs, rôles et sauvegardes.</p>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Patient Modal -->
+    <div id="add-patient-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeModal('add-patient-modal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 animate-fade-in">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Nouveau Patient</h3>
+            <form onsubmit="handlePatientSubmit(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Nom</label>
+                        <input type="text" required class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Prénom</label>
+                        <input type="text" required class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Date de naissance</label>
+                    <input type="date" required class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Téléphone</label>
+                    <input type="tel" required class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Groupe Sanguin</label>
+                    <select class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                        <option>O+</option>
+                        <option>A+</option>
+                        <option>B+</option>
+                        <option>AB+</option>
+                        <option>O-</option>
+                        <option>A-</option>
+                        <option>B-</option>
+                        <option>AB-</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('add-patient-modal')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium shadow-lg shadow-brand-500/30">Enregistrer Patient</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeModal('payment-modal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 animate-fade-in">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Payer la Facture</h3>
+            <form onsubmit="handlePaymentSubmit(event)" class="space-y-4">
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 flex justify-between items-center">
+                    <span class="text-sm text-slate-500">Montant dû</span>
+                    <span class="font-bold text-lg text-slate-800">25,000 FCFA</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-2">Méthode de Paiement</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="payment" value="cash" class="peer sr-only" checked>
+                            <div class="p-3 border border-slate-200 rounded-lg text-center peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-700 transition-all">
+                                <i class="fa-solid fa-money-bill mb-1"></i>
+                                <p class="text-sm font-medium">Espèces</p>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="payment" value="momo" class="peer sr-only">
+                            <div class="p-3 border border-slate-200 rounded-lg text-center peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all">
+                                <i class="fa-solid fa-mobile-screen mb-1"></i>
+                                <p class="text-sm font-medium">Mobile Money</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('payment-modal')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-lg shadow-green-500/30">Valider Paiement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+
+    <script>
+        // --- Mock Data ---
+        const patients = [
+            { id: 'P-101', name: 'Aminata Diallo', phone: '+221 77 123 45 67', lastVisit: '12 Oct 2023', status: 'Ambulatoire', gender: 'F' },
+            { id: 'P-102', name: 'Kofi Mensah', phone: '+233 24 555 66 77', lastVisit: '10 Oct 2023', status: 'Hospitalisé', gender: 'M' },
+            { id: 'P-103', name: 'Fatou Bensouda', phone: '+220 33 444 55 66', lastVisit: '09 Oct 2023', status: 'Ambulatoire', gender: 'F' },
+            { id: 'P-104', name: 'Jean Dupont', phone: '+225 07 888 99 00', lastVisit: '08 Oct 2023', status: 'Ambulatoire', gender: 'M' },
+            { id: 'P-105', name: 'Mariama Sy', phone: '+221 78 000 11 22', lastVisit: '05 Oct 2023', status: 'Hospitalisé', gender: 'F' },
+        ];
+
+        const roles = {
+            'admin': { name: 'Admin Système', menu: ['dashboard', 'patients', 'appointments', 'pharmacy', 'billing', 'settings'] },
+            'doctor': { name: 'Dr. Kouassi', menu: ['dashboard', 'patients', 'consultations', 'appointments', 'pharmacy', 'billing'] },
+            'nurse': { name: 'Infirm. Awa', menu: ['dashboard', 'patients', 'pharmacy'] },
+            'reception': { name: 'Récep. Ibrahim', menu: ['dashboard', 'patients', 'appointments', 'billing'] }
+        };
+
+        let currentRole = 'doctor';
+
+        // --- Core Functions ---
+
+        function init() {
+            renderPatients(patients);
+            updateRole();
+            initCanvas();
+        }
+
+        // Navigation
+        function navigate(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.page-section').forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('animate-fade-in');
+            });
+
+            // Show target section
+            const target = document.getElementById(sectionId);
+            if (target) {
+                target.classList.remove('hidden');
+                // Trigger animation reflow
+                void target.offsetWidth;
+                target.classList.add('animate-fade-in');
+            }
+
+            // Update Header Title
+            const titles = {
+                'dashboard': 'Tableau de Bord',
+                'patients': 'Patients',
+                'consultations': 'Consultations',
+                'appointments': 'Rendez-vous',
+                'pharmacy': 'Pharmacie',
+                'billing': 'Facturation',
+                'settings': 'Administration'
+            };
+            document.getElementById('page-title').textContent = titles[sectionId] || 'ClinicOS';
+
+            // Update Sidebar Active State
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('bg-brand-600', 'text-white', 'shadow-lg');
+                el.classList.add('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+                
+                // Simple logic to highlight active link based on click target
+                if(el.getAttribute('onclick').includes(sectionId)) {
+                    el.classList.add('bg-brand-600', 'text-white', 'shadow-lg');
+                    el.classList.remove('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+                }
+            });
+
+            // Close mobile sidebar if open
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+        }
+
+        // Role Management (Simulating RBAC)
+        function updateRole() {
+            currentRole = document.getElementById('role-select').value;
+            const roleData = roles[currentRole];
+            
+            // Update Header
+            document.getElementById('user-name').textContent = roleData.name;
+            document.getElementById('user-role').textContent = currentRole === 'doctor' ? 'Médecin' : currentRole.charAt(0).toUpperCase() + currentRole.slice(1);
+            document.getElementById('dash-name').textContent = roleData.name.split(' ')[1] || roleData.name;
+
+            // Filter Menu Items
+            const allMenuItems = document.querySelectorAll('.nav-item');
+            
+            allMenuItems.forEach(item => {
+                // Remove specialized classes first to reset state
+                item.classList.remove('hidden', 'admin-only', 'doctor-only', 'nurse-only');
+                
+                // Identify the page this item links to
+                const onclickAttr = item.getAttribute('onclick');
+                const pageId = onclickAttr.match(/'([^']+)'/)[1];
+
+                // Hide/Show based on role
+                if (!roleData.menu.includes(pageId)) {
+                    item.classList.add('hidden');
+                }
+            });
+
+            // If current page is not accessible, go to dashboard
+            if (!roleData.menu.includes(document.querySelector('.page-section:not(.hidden)').id)) {
+                navigate('dashboard');
+            }
+            
+            showToast(`Rôle changé : ${roleData.name}`, 'info');
+        }
+
+        // Toggle Sidebar (Mobile)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // Patient Rendering
+        function renderPatients(data) {
+            const tbody = document.getElementById('patients-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors group";
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-brand-600">${p.id}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                ${p.gender === 'F' ? '<i class="fa-solid fa-venus"></i>' : '<i class="fa-solid fa-mars"></i>'}
+                            </div>
+                            <span class="font-medium text-slate-800">${p.name}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-slate-500">${p.phone}</td>
+                    <td class="px-6 py-4 text-slate-500">${p.lastVisit}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${p.status === 'Hospitalisé' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                            ${p.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button class="text-slate-400 hover:text-brand-600 transition-colors p-1"><i class="fa-solid fa-pen"></i></button>
+                        <button class="text-slate-400 hover:text-red-600 transition-colors p-1"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterPatients() {
+            const query = document.getElementById('patient-search').value.toLowerCase();
+            const filtered = patients.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                p.id.toLowerCase().includes(query)
+            );
+            renderPatients(filtered);
+        }
+
+        // Modals
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.querySelector('input')?.focus();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function handlePatientSubmit(e) {
+            e.preventDefault();
+            // In a real app, this would send data to backend
+            closeModal('add-patient-modal');
+            showToast('Patient ajouté avec succès', 'success');
+            // Simulate adding to table
+            const inputs = e.target.querySelectorAll('input');
+            const newPatient = {
+                id: 'P-' + (Math.floor(Math.random() * 900) + 100),
+                name: `${inputs[1].value} ${inputs[0].value}`,
+                phone: inputs[3].value,
+                lastVisit: 'Juste maintenant',
+                status: 'Ambulatoire',
+                gender: 'M' // Simplified
+            };
+            patients.unshift(newPatient);
+            renderPatients(patients);
+        }
+
+        function handlePaymentSubmit(e) {
+            e.preventDefault();
+            closeModal('payment-modal');
+            showToast('Paiement enregistré avec succès', 'success');
+            // Change button state logic would go here
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = type === 'success' ? 'bg-green-500' : (type === 'error' ? 'bg-red-500' : 'bg-brand-500');
+            const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg text-white shadow-lg shadow-slate-300 transform transition-all duration-300 translate-y-10 opacity-0 ${colors}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon}"></i>
+                <span class="text-sm font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate In
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
+
+            // Remove after delay
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Background Particles (Canvas) ---
+        function initCanvas() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                    this.size = Math.random() * 2 + 1;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > width) this.vx *= -1;
+                    if (this.y < 0 || this.y > height) this.vy *= -1;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.fill();
+                }
+            }
+
+            function createParticles() {
+                particles = [];
+                const count = Math.min(width / 10, 100); // Responsive count
+                for (let i = 0; i < count; i++) {
+                    particles.push(new Particle());
+                }
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                
+                for (let i = 0; i < particles.length; i++) {
+                    particles[i].update();
+                    particles[i].draw();
+                    
+                    // Draw connections
+                    for (let j = i; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 150) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(203, 213, 225, ${1 - distance/150})`;
+                            ctx.lineWidth = 1;
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+
+            window.addEventListener('resize', () => {
+                resize();
+                createParticles();
+            });
+
+            resize();
+            createParticles();
+            animate();
+        }
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
